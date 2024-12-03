@@ -61,3 +61,18 @@ jobs:
       with:
         name: Publish win-x64 Fibonacci
         path: ./win-x64/fibonacci
+
+  build_docker_webapp:
+    needs: [tags]
+    uses: ./.github/workflows/docker.yml
+    with:
+      image_name: "fibonacci"
+      image_version: ${{ needs.tags.outputs.new_version }}
+      image_build_args: ""
+      image_context: .
+      image_file: "./Dockerfile"
+      docker_registry:  "ghcr.io"
+      docker_repository: ${{ github.repository_owner }}
+    secrets:
+      DOCKER_USERNAME: ${{ github.actor }}
+      DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
