@@ -9,11 +9,37 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+
 jobs:
-  build:
 
+  tags:
     runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.tag.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump version and push tag
+        id: tag_version
+        if: github.ref == 'refs/heads/main'
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN  }}
+      - name: Add tag to output step for main branch
+        id: tag
+        run: |
+          if [ '${{ github.ref }}' = 'refs/heads/main' ]; then
+            echo "new_version=${{ steps.tag_version.outputs.new_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "new_version=pr-${{ github.event.number }}-${{ github.run_number }}" >> $GITHUB_OUTPUT
+          fi
 
+  build:
+    needs: [tags]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Setup .NET
@@ -23,6 +49,12 @@ jobs:
     - name: Run Unit test
       working-directory: ./tests/Leonardo.Tests
       run: dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput=./coverage/opencover.xml
+    - name: Publish Fibonacci to Nuget
+      working-directory: ./src/Leonardo
+      if: github.ref == 'refs/heads/main'
+      run: |
+        dotnet pack -c Release -p:PackageVersion=${{ needs.tags.outputs.new_version }}
+        dotnet nuget push ./bin/Release/Simon.Deweerdt.Leonardo.${{ needs.tags.outputs.new_version }}.nupkg --api-key${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
     - run: dotnet publish ./src/Leonardo.Web/Leonardo.Web.csproj --self-contained true --output ./win-x64/fibonacci -c Release -r win-x64 /p:PublishSingleFile=true /p:PublishTrimmed=true /p:PublishReadyToRun=true
     - name: Upload WebApp Build Artifact
       uses: actions/upload-artifact@v3
