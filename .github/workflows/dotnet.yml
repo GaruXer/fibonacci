@@ -72,7 +72,7 @@ jobs:
       image_context: .
       image_file: "./Dockerfile"
       docker_registry:  "ghcr.io"
-      docker_repository: ${{ github.repository_owner }}
+      docker_repository: "garuxer"
     secrets:
       DOCKER_USERNAME: ${{ github.actor }}
       DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
