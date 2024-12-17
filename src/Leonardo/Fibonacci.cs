@@ -4,18 +4,30 @@ namespace Leonardo;
 
 public record FibonacciResult(int Input, long Result);
 
-public static class Fibonacci
+public class Fibonacci
 {
-    public static async Task<List<FibonacciResult>> RunAsync(string[] strings)
+    private readonly FibonacciDataContext _context;
+
+    public Fibonacci(FibonacciDataContext context)
     {
-        await using var context = new FibonacciDataContext();
-        
+        _context = context;
+    }
+    
+    private int Run(int n)
+    {
+        if (n < 2) return n;
+
+        return Run(n - 1) + Run(n - 2);
+    }
+    
+    public async Task<List<FibonacciResult>> RunAsync(string[] strings)
+    {
         var tasks = new List<Task<FibonacciResult>>();
 
         foreach (var input in strings)
         {
             var int32 = Convert.ToInt32(input);
-            var fibo = await context.TFibonaccis.Where(f => f.FibInput == int32).FirstOrDefaultAsync();
+            var fibo = await _context.TFibonaccis.Where(f => f.FibInput == int32).FirstOrDefaultAsync();
 
             if (fibo != null)
             {
@@ -30,7 +42,7 @@ public static class Fibonacci
             {
                 var r = Task.Run(() =>
                 {
-                    var result = Fibonacci.Run(int32);
+                    var result = Run(int32);
                     return new FibonacciResult(int32, result);
                 });
     
@@ -43,11 +55,11 @@ public static class Fibonacci
         foreach (var task in tasks)
         {
             var r = await task;
-            var fibo = await context.TFibonaccis.Where(f => f.FibInput == r.Input).FirstOrDefaultAsync();
+            var fibo = await _context.TFibonaccis.Where(f => f.FibInput == r.Input).FirstOrDefaultAsync();
 
             if (fibo == null)
             {
-                context.TFibonaccis.Add(new TFibonacci()
+                _context.TFibonaccis.Add(new TFibonacci()
                 {
                     FibInput = r.Input,
                     FibOutput = r.Result,
@@ -57,14 +69,8 @@ public static class Fibonacci
             results.Add(r);
         }
 
-        await context.SaveChangesAsync();
+        await _context.SaveChangesAsync();
+        
         return results;
-    }
-    
-    private static int Run(int n)
-    {
-        if (n < 2) return n;
-
-        return Run(n - 1) + Run(n - 2);
     }
 }
